@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   async function loadItems() {
     setLoading(true);
@@ -39,6 +40,33 @@ export default function AdminPage() {
       setMsg(e?.message || "加载失败");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string, title: string) {
+    const ok = confirm(`确定删除商品「${title}」吗？`);
+    if (!ok) return;
+
+    setDeletingId(id);
+    setMsg(null);
+
+    try {
+      const res = await fetch(`/api/admin/items/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "删除失败");
+      }
+
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setMsg("删除成功");
+    } catch (e: any) {
+      setMsg(e?.message || "删除失败");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -76,7 +104,7 @@ export default function AdminPage() {
             管理员控制台
           </h1>
           <div style={{ color: "rgba(15,23,42,0.68)", lineHeight: 1.7 }}>
-            这里可以查看全站商品，后面我们再加管理员删除按钮。
+            这里可以查看全站商品，并删除违规、重复或测试数据。
           </div>
 
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
@@ -270,19 +298,21 @@ export default function AdminPage() {
                     </a>
 
                     <button
-                      disabled
+                      onClick={() => handleDelete(item.id, item.title)}
+                      disabled={deletingId === item.id}
                       style={{
                         flex: 1,
                         border: "none",
                         padding: "12px 14px",
                         borderRadius: 14,
-                        background: "rgba(214,48,49,0.35)",
+                        background: "rgba(214,48,49,0.95)",
                         color: "white",
                         fontWeight: 900,
-                        cursor: "not-allowed",
+                        cursor: deletingId === item.id ? "not-allowed" : "pointer",
+                        boxShadow: "0 14px 30px rgba(214,48,49,0.22)",
                       }}
                     >
-                      下一步加删除
+                      {deletingId === item.id ? "删除中..." : "管理员删除"}
                     </button>
                   </div>
                 </div>
