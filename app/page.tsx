@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
 type Item = {
@@ -343,85 +344,97 @@ export default function Home() {
           }}
         >
           {filteredItems.map((item) => (
-            <div
+            <Link
               key={item.id}
+              href={`/item/${item.id}`}
               style={{
-                background: "rgba(255,255,255,0.92)",
-                borderRadius: 18,
-                overflow: "hidden",
-                border: "1px solid rgba(15,23,42,0.08)",
-                boxShadow: "0 16px 44px rgba(15,23,42,0.10)",
+                textDecoration: "none",
+                color: "inherit",
+                display: "block",
               }}
             >
-              {/* 图片占位（后面你加 image_url 我再帮你接真实图片） */}
               <div
                 style={{
-                  height: 170,
-                  background:
-                    "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "rgba(15,23,42,0.55)",
-                  fontWeight: 800,
+                  background: "rgba(255,255,255,0.92)",
+                  borderRadius: 18,
+                  overflow: "hidden",
+                  border: "1px solid rgba(15,23,42,0.08)",
+                  boxShadow: "0 16px 44px rgba(15,23,42,0.10)",
+                  transition: "transform 0.18s ease, box-shadow 0.18s ease",
+                  cursor: "pointer",
                 }}
               >
-                {item.image_url ? (
-  <img
-    src={item.image_url}
-    style={{
-      width: "100%",
-      height: "100%",
-      objectFit: "cover"
-    }}
-  />
-) : (
-  "暂无图片"
-)}
-              </div>
-
-              <div style={{ padding: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                  <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.3 }}>
-                    {item.title}
-                  </div>
-                  <div
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: 12,
-                      background: "rgba(46,204,113,0.14)",
-                      color: "#1f8a4c",
-                      fontWeight: 900,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    A${item.price ?? "-"}
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 10, color: "rgba(15,23,42,0.65)", fontSize: 14 }}>
-                  {item.description ? item.description : "（暂无描述）"}
-                </div>
-
+                {/* 图片占位（后面你加 image_url 我再帮你接真实图片） */}
                 <div
                   style={{
-                    marginTop: 12,
+                    height: 170,
+                    background:
+                      "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    color: "rgba(15,23,42,0.5)",
-                    fontSize: 12,
+                    justifyContent: "center",
+                    color: "rgba(15,23,42,0.55)",
+                    fontWeight: 800,
                   }}
                 >
-                  <div>
-                    {item.created_at
-                      ? new Date(item.created_at).toLocaleString()
-                      : ""}
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.title}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    "暂无图片"
+                  )}
+                </div>
+
+                <div style={{ padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                    <div style={{ fontWeight: 900, fontSize: 16, lineHeight: 1.3 }}>
+                      {item.title}
+                    </div>
+                    <div
+                      style={{
+                        padding: "6px 10px",
+                        borderRadius: 12,
+                        background: "rgba(46,204,113,0.14)",
+                        color: "#1f8a4c",
+                        fontWeight: 900,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      A${item.price ?? "-"}
+                    </div>
                   </div>
-                  <div style={{ fontWeight: 800 }}>详情页（下一步做）</div>
+
+                  <div style={{ marginTop: 10, color: "rgba(15,23,42,0.65)", fontSize: 14 }}>
+                    {item.description ? item.description : "（暂无描述）"}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      color: "rgba(15,23,42,0.5)",
+                      fontSize: 12,
+                    }}
+                  >
+                    <div>
+                      {item.created_at
+                        ? new Date(item.created_at).toLocaleString()
+                        : ""}
+                    </div>
+                    <div style={{ fontWeight: 800, color: "#0071e3" }}>点击查看详情</div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
 
           {!loading && filteredItems.length === 0 && (

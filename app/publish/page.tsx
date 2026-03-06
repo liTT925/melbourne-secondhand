@@ -22,6 +22,11 @@ export default function PublishPage() {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
+
+  const [wechat, setWechat] = useState("");
+  const [phone, setPhone] = useState("");
+  const [location, setLocation] = useState("");
+
   const [image, setImage] = useState<File | null>(null);
 
   const preview = useMemo(() => {
@@ -50,6 +55,10 @@ export default function PublishPage() {
     // 2) 基础校验
     const t = title.trim();
     const d = description.trim();
+    const w = wechat.trim();
+    const p = phone.trim();
+    const l = location.trim();
+
     if (!t) return setMsg("请输入商品标题");
 
     const priceNum = Number(price);
@@ -64,7 +73,7 @@ export default function PublishPage() {
 
       // 3) 上传图片（可选）
       if (image) {
-        // 文件大小限制（你想改也行）
+        // 文件大小限制
         const maxMB = 8;
         if (image.size > maxMB * 1024 * 1024) {
           throw new Error(`图片太大（>${maxMB}MB），请换小一点的`);
@@ -83,7 +92,6 @@ export default function PublishPage() {
           });
 
         if (uploadError) {
-          // 把真实错误显示出来
           throw new Error("图片上传失败：" + uploadError.message);
         }
 
@@ -104,6 +112,9 @@ export default function PublishPage() {
         price: priceNum,
         description: d,
         image_url: imageUrl,
+        wechat: w || null,
+        phone: p || null,
+        location: l || null,
         user_id: auth.user.id,
       });
 
@@ -198,7 +209,7 @@ export default function PublishPage() {
           />
 
           <textarea
-            placeholder="描述（成色/取货地点/联系方式/是否可小刀）"
+            placeholder="描述（成色 / 使用情况 / 是否可小刀）"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={5}
@@ -210,6 +221,48 @@ export default function PublishPage() {
               fontSize: 14,
               background: "white",
               resize: "vertical",
+            }}
+          />
+
+          <input
+            placeholder="微信（可选）"
+            value={wechat}
+            onChange={(e) => setWechat(e.target.value)}
+            style={{
+              padding: 14,
+              borderRadius: 14,
+              border: "1px solid rgba(15,23,42,0.12)",
+              outline: "none",
+              fontSize: 14,
+              background: "white",
+            }}
+          />
+
+          <input
+            placeholder="手机号（可选）"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            style={{
+              padding: 14,
+              borderRadius: 14,
+              border: "1px solid rgba(15,23,42,0.12)",
+              outline: "none",
+              fontSize: 14,
+              background: "white",
+            }}
+          />
+
+          <input
+            placeholder="取货地点（例如：Monash Clayton）"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            style={{
+              padding: 14,
+              borderRadius: 14,
+              border: "1px solid rgba(15,23,42,0.12)",
+              outline: "none",
+              fontSize: 14,
+              background: "white",
             }}
           />
 
