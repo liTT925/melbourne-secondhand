@@ -11,6 +11,7 @@ const supabase = createClient(
 
 export default function PublishPage() {
   const router = useRouter();
+
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
@@ -20,33 +21,56 @@ export default function PublishPage() {
   async function submit() {
     setMsg(null);
 
+    // 检查登录
+    const { data: auth } = await supabase.auth.getUser();
+
+    if (!auth.user) {
+      setMsg("请先登录再发布商品");
+      router.push("/login");
+      return;
+    }
+
+    // 基础验证
     if (!title.trim()) return setMsg("请输入标题");
     if (!price.trim()) return setMsg("请输入价格");
+
     const priceNum = Number(price);
-    if (Number.isNaN(priceNum) || priceNum < 0) return setMsg("价格请输入数字");
+
+    if (Number.isNaN(priceNum) || priceNum < 0) {
+      return setMsg("价格必须是数字");
+    }
 
     setLoading(true);
+
     const { error } = await supabase.from("items").insert({
       title: title.trim(),
       price: priceNum,
       description: description.trim(),
+      user_id: auth.user.id,
     });
+
     setLoading(false);
 
-    if (error) return setMsg("发布失败：" + error.message);
+    if (error) {
+      setMsg("发布失败：" + error.message);
+      return;
+    }
 
-    // 发布成功：回到首页并让首页重新拉取数据（最简单可靠做法：回首页后刷新一次）
+    setMsg("发布成功");
+
     router.push("/");
+
     setTimeout(() => {
       window.location.reload();
-    }, 100);
+    }, 200);
   }
 
   return (
     <div style={{ maxWidth: 720, margin: "30px auto", padding: 20 }}>
       <h2 style={{ marginBottom: 10 }}>发布商品</h2>
+
       <p style={{ color: "#666", marginTop: 0 }}>
-        填完点击发布，商品会出现在首页列表。
+        填写商品信息后点击发布
       </p>
 
       <div style={{ display: "grid", gap: 12 }}>
@@ -54,22 +78,34 @@ export default function PublishPage() {
           placeholder="标题，例如：iPhone 14 Pro"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #ddd",
+          }}
         />
 
         <input
-          placeholder="价格（AUD），例如：350"
+          placeholder="价格（AUD）例如：350"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #ddd",
+          }}
         />
 
         <textarea
-          placeholder="描述（成色/取货地点/是否可小刀）"
+          placeholder="描述（成色 / 取货地点 / 联系方式）"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={5}
-          style={{ padding: 12, borderRadius: 10, border: "1px solid #ddd" }}
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #ddd",
+          }}
         />
 
         <button
@@ -85,7 +121,7 @@ export default function PublishPage() {
             fontWeight: 700,
           }}
         >
-          {loading ? "发布中..." : "发布"}
+          {loading ? "发布中..." : "发布商品"}
         </button>
 
         <button
@@ -101,7 +137,11 @@ export default function PublishPage() {
           返回首页
         </button>
 
-        {msg && <div style={{ color: "#d63031" }}>{msg}</div>}
+        {msg && (
+          <div style={{ color: "#d63031", marginTop: 10 }}>
+            {msg}
+          </div>
+        )}
       </div>
     </div>
   );
