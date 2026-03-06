@@ -28,6 +28,8 @@ export default function Home() {
   const [activeCat, setActiveCat] = useState<string>("全部");
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [logoTapCount, setLogoTapCount] = useState(0);
+  const [logoTapMsg, setLogoTapMsg] = useState<string | null>(null);
 
   const categories = useMemo(
     () => ["全部", "电子产品", "家具", "自行车", "教材", "其他"],
@@ -60,6 +62,28 @@ export default function Home() {
       setErrMsg(e?.message ?? "加载失败");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function handleLogoTap() {
+    const next = logoTapCount + 1;
+    setLogoTapCount(next);
+
+    if (next < 7) {
+      const text = `开发者模式唤醒中 ${next}/7`;
+      setLogoTapMsg(text);
+
+      setTimeout(() => {
+        setLogoTapMsg((current) => (current === text ? null : current));
+      }, 900);
+    }
+
+    if (next >= 7) {
+      setLogoTapMsg("已进入开发者模式");
+      setTimeout(() => {
+        window.location.href = "/admin";
+      }, 300);
+      setLogoTapCount(0);
     }
   }
 
@@ -108,7 +132,16 @@ export default function Home() {
             gap: 14,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            onClick={handleLogoTap}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
             <div
               style={{
                 width: 34,
@@ -454,6 +487,26 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {logoTapMsg && (
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            padding: "10px 14px",
+            borderRadius: 999,
+            background: "rgba(15,23,42,0.9)",
+            color: "white",
+            fontWeight: 900,
+            boxShadow: "0 18px 50px rgba(15,23,42,0.25)",
+            zIndex: 999,
+          }}
+        >
+          {logoTapMsg}
+        </div>
+      )}
     </div>
   );
 }
