@@ -1,35 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+function checkAdmin(req: NextRequest) {
+  const token = req.headers.get("x-admin-key");
+  return token === process.env.ADMIN_SECRET;
+}
+
 export async function DELETE(
   req: NextRequest,
-  context: { params: { id: string } }
+  ctx: RouteContext<"/api/admin/items/[id]">
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  try {
+    if (!checkAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  if (!supabaseUrl || !serviceKey) {
+    const { id } = await ctx.params;
+
+    const { error } = await supabase.from("items").delete().eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
     return NextResponse.json(
-      { error: "Supabase env missing" },
+      { error: err?.message || "Server error" },
       { status: 500 }
     );
   }
+}
 
-  const supabaseAdmin = createClient(supabaseUrl, serviceKey);
+export async function PATCH(
+  req: NextRequest,
+  ctx: RouteContext<"/api/admin/items/[id]">
+) {
+  try {
+    if (!checkAdmin(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { id } = context.params;
+    const { id } = await ctx.params;
+    const body = await req.json();
 
-  const { error } = await supabaseAdmin
-    .from("items")
-    .delete()
-    .eq("id", id);
+    const { error } = await supabase.from("items").update(body).eq("id", id);
 
-  if (error) {
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
     return NextResponse.json(
-      { error: error.message },
+      { error: err?.message || "Server error" },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ success: true });
 }
