@@ -1,29 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createClient, User } from "@supabase/supabase-js";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+function getRedirectFromUrl() {
+  if (typeof window === "undefined") return "/";
+  const params = new URLSearchParams(window.location.search);
+  const raw = params.get("redirect");
+  if (!raw || !raw.startsWith("/")) return "/";
+  return raw;
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const redirect = useMemo(() => {
-    const raw = searchParams.get("redirect");
-    if (!raw || !raw.startsWith("/")) return "/";
-    return raw;
-  }, [searchParams]);
 
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [redirect, setRedirect] = useState("/");
+
+  useEffect(() => {
+    setRedirect(getRedirectFromUrl());
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -36,7 +42,7 @@ export default function LoginPage() {
       setChecking(false);
 
       if (data.user) {
-        router.replace(redirect);
+        router.replace(getRedirectFromUrl());
       }
     }
 
@@ -51,7 +57,7 @@ export default function LoginPage() {
       setUser(data.user ?? null);
 
       if (event === "SIGNED_IN" && data.user) {
-        router.replace(redirect);
+        router.replace(getRedirectFromUrl());
       }
     });
 
@@ -59,7 +65,7 @@ export default function LoginPage() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [redirect, router]);
+  }, [router]);
 
   async function sendMagicLink() {
     setMsg(null);
@@ -72,10 +78,12 @@ export default function LoginPage() {
 
     setLoading(true);
 
+    const target = getRedirectFromUrl();
+
     const { error } = await supabase.auth.signInWithOtp({
       email: e,
       options: {
-        emailRedirectTo: `${window.location.origin}${redirect}`,
+        emailRedirectTo: `${window.location.origin}${target}`,
       },
     });
 
@@ -86,9 +94,7 @@ export default function LoginPage() {
       return;
     }
 
-    setMsg(
-      "登录链接已经发到你的邮箱。请在同一台设备上打开邮件里的链接，登录成功后会自动回到刚才的页面。"
-    );
+    setMsg("登录链接已经发到邮箱。请在同一台设备上打开邮件里的链接，登录成功后会自动返回刚才的页面。");
   }
 
   async function logout() {
@@ -160,9 +166,8 @@ export default function LoginPage() {
               marginBottom: 0,
             }}
           >
-            先用邮箱魔法链接登录，最省事。登录成功后会自动跳回
+            登录成功后会自动回到
             <span style={{ fontWeight: 800, color: "#0f172a" }}> {redirect} </span>
-            。
           </p>
         </div>
 
@@ -307,51 +312,7 @@ export default function LoginPage() {
             )}
           </div>
         </div>
-
-        <div
-          style={{
-            background: "rgba(255,255,255,0.92)",
-            border: "1px solid rgba(15,23,42,0.08)",
-            borderRadius: 24,
-            padding: 20,
-            boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 900,
-              color: "#0f172a",
-              marginBottom: 12,
-            }}
-          >
-            使用说明
-          </div>
-
-          <div style={{ display: "grid", gap: 10 }}>
-            <Tip text="输入邮箱后，去邮箱里打开登录邮件。" />
-            <Tip text="尽量在同一台设备上点开邮件链接，登录会更顺。" />
-            <Tip text={`登录成功后会自动跳回 ${redirect}。`} />
-          </div>
-        </div>
       </div>
-    </div>
-  );
-}
-
-function Tip({ text }: { text: string }) {
-  return (
-    <div
-      style={{
-        padding: "12px 14px",
-        borderRadius: 14,
-        background: "rgba(15,23,42,0.035)",
-        color: "#334155",
-        fontSize: 14,
-        lineHeight: 1.5,
-      }}
-    >
-      {text}
     </div>
   );
 }
