@@ -15,38 +15,55 @@ export default function PublishPage() {
   const [title, setTitle] = useState("");
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   async function submit() {
     setMsg(null);
 
-    // 检查登录
     const { data: auth } = await supabase.auth.getUser();
 
     if (!auth.user) {
-      setMsg("请先登录再发布商品");
       router.push("/login");
       return;
     }
 
-    // 基础验证
     if (!title.trim()) return setMsg("请输入标题");
-    if (!price.trim()) return setMsg("请输入价格");
 
     const priceNum = Number(price);
 
-    if (Number.isNaN(priceNum) || priceNum < 0) {
-      return setMsg("价格必须是数字");
-    }
+    if (Number.isNaN(priceNum)) return setMsg("价格必须是数字");
 
     setLoading(true);
 
+    let imageUrl = null;
+
+    // 上传图片
+    if (image) {
+      const fileName = Date.now() + "-" + image.name;
+
+      const { error: uploadError } = await supabase.storage
+        .from("items")
+        .upload(fileName, image);
+
+      if (uploadError) {
+        setLoading(false);
+        return setMsg("图片上传失败");
+      }
+
+      const { data } = supabase.storage.from("items").getPublicUrl(fileName);
+
+      imageUrl = data.publicUrl;
+    }
+
     const { error } = await supabase.from("items").insert({
-      title: title.trim(),
+      title,
       price: priceNum,
-      description: description.trim(),
-      user_id: auth.user.id,
+      description,
+      image_url: imageUrl,
+      user_id: auth.user.id
     });
 
     setLoading(false);
@@ -56,10 +73,7 @@ export default function PublishPage() {
       return;
     }
 
-    setMsg("发布成功");
-
     router.push("/");
-
     setTimeout(() => {
       window.location.reload();
     }, 200);
@@ -67,81 +81,41 @@ export default function PublishPage() {
 
   return (
     <div style={{ maxWidth: 720, margin: "30px auto", padding: 20 }}>
-      <h2 style={{ marginBottom: 10 }}>发布商品</h2>
-
-      <p style={{ color: "#666", marginTop: 0 }}>
-        填写商品信息后点击发布
-      </p>
+      <h2>发布商品</h2>
 
       <div style={{ display: "grid", gap: 12 }}>
+
         <input
-          placeholder="标题，例如：iPhone 14 Pro"
+          placeholder="商品标题"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #ddd",
-          }}
         />
 
         <input
-          placeholder="价格（AUD）例如：350"
+          placeholder="价格 AUD"
           value={price}
           onChange={(e) => setPrice(e.target.value)}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #ddd",
-          }}
         />
 
         <textarea
-          placeholder="描述（成色 / 取货地点 / 联系方式）"
+          placeholder="商品描述"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          rows={5}
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #ddd",
+        />
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            if (e.target.files) setImage(e.target.files[0]);
           }}
         />
 
-        <button
-          onClick={submit}
-          disabled={loading}
-          style={{
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "none",
-            cursor: "pointer",
-            background: "#2ecc71",
-            color: "white",
-            fontWeight: 700,
-          }}
-        >
+        <button onClick={submit} disabled={loading}>
           {loading ? "发布中..." : "发布商品"}
         </button>
 
-        <button
-          onClick={() => router.push("/")}
-          style={{
-            padding: "10px 14px",
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            cursor: "pointer",
-            background: "white",
-          }}
-        >
-          返回首页
-        </button>
-
-        {msg && (
-          <div style={{ color: "#d63031", marginTop: 10 }}>
-            {msg}
-          </div>
-        )}
+        {msg && <div>{msg}</div>}
       </div>
     </div>
   );

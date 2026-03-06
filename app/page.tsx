@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 type Item = {
+  image_url: any;
   id: string | number;
   title: string;
   price: number | string | null;
@@ -365,7 +366,18 @@ export default function Home() {
                   fontWeight: 800,
                 }}
               >
-                商品图片（下一步接上传）
+                {item.image_url ? (
+  <img
+    src={item.image_url}
+    style={{
+      width: "100%",
+      height: "100%",
+      objectFit: "cover"
+    }}
+  />
+) : (
+  "暂无图片"
+)}
               </div>
 
               <div style={{ padding: 16 }}>
