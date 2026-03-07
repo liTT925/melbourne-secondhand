@@ -1,44 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
-  if (!url || !key) {
-    throw new Error("Missing Supabase env vars");
+function checkAdminKey(request: Request) {
+  const key = request.headers.get("x-admin-key");
+  return key && key === process.env.ADMIN_KEY;
+}
+
+export async function GET(request: Request) {
+  if (!checkAdminKey(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  return createClient(url, key);
-}
+  const { data, error } = await supabaseAdmin
+    .from("items")
+    .select("id,title,price,created_at")
+    .order("created_at", { ascending: false });
 
-function checkAdmin(req: NextRequest) {
-  const token = req.headers.get("x-admin-key");
-  return token === process.env.ADMIN_SECRET;
-}
-
-export async function GET(req: NextRequest) {
-  try {
-    if (!checkAdmin(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = getSupabaseAdmin();
-
-    const { data, error } = await supabase
-      .from("items")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ items: data ?? [] });
-  } catch (err: any) {
+  if (error) {
     return NextResponse.json(
-      { error: err?.message || "Server error" },
+      { error: error.message || "Failed to load items" },
       { status: 500 }
     );
   }
+
+  return NextResponse.json({ items: data || [] });
 }
