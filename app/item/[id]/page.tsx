@@ -44,6 +44,7 @@ export default function ItemPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [startingChat, setStartingChat] = useState(false);
 
   const isOwner = useMemo(() => {
     if (!item || !currentUserId) return false;
@@ -118,6 +119,70 @@ export default function ItemPage() {
 
     alert("删除成功");
     router.push("/");
+  }
+
+  async function handleStartChat() {
+    if (!item) return;
+
+    setStartingChat(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setStartingChat(false);
+      alert("请先登录后再联系卖家");
+      router.push("/login");
+      return;
+    }
+
+    if (user.id === item.user_id) {
+      setStartingChat(false);
+      alert("这是你自己发布的商品，不需要和自己聊天");
+      return;
+    }
+
+    // 先查有没有已有会话
+    const { data: existing, error: existingError } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("item_id", item.id)
+      .eq("buyer_id", user.id)
+      .eq("seller_id", item.user_id)
+      .maybeSingle();
+
+    if (existingError) {
+      setStartingChat(false);
+      alert("查询聊天失败：" + existingError.message);
+      return;
+    }
+
+    if (existing) {
+      setStartingChat(false);
+      router.push(`/chat/${existing.id}`);
+      return;
+    }
+
+    // 没有就创建新会话
+    const { data: created, error: createError } = await supabase
+      .from("conversations")
+      .insert({
+        item_id: item.id,
+        buyer_id: user.id,
+        seller_id: item.user_id,
+      })
+      .select("id")
+      .single();
+
+    setStartingChat(false);
+
+    if (createError) {
+      alert("创建聊天失败：" + createError.message);
+      return;
+    }
+
+    router.push(`/chat/${created.id}`);
   }
 
   if (loading) {
@@ -379,6 +444,27 @@ export default function ItemPage() {
                 联系卖家
               </div>
 
+              {!isOwner && (
+                <button
+                  onClick={handleStartChat}
+                  disabled={startingChat}
+                  style={{
+                    width: "100%",
+                    marginBottom: 12,
+                    border: "none",
+                    cursor: startingChat ? "not-allowed" : "pointer",
+                    padding: "14px 16px",
+                    borderRadius: 16,
+                    background: "linear-gradient(135deg, #0071e3 0%, #16a34a 100%)",
+                    color: "white",
+                    fontWeight: 950,
+                    boxShadow: "0 14px 30px rgba(0,113,227,0.22)",
+                  }}
+                >
+                  {startingChat ? "进入聊天中..." : "聊一聊"}
+                </button>
+              )}
+
               <div style={{ display: "grid", gap: 10 }}>
                 {/* 微信 */}
                 <div
@@ -394,7 +480,13 @@ export default function ItemPage() {
                   }}
                 >
                   <div style={{ lineHeight: 1.2 }}>
-                    <div style={{ fontSize: 12, color: "rgba(15,23,42,0.55)", fontWeight: 800 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(15,23,42,0.55)",
+                        fontWeight: 800,
+                      }}
+                    >
                       微信
                     </div>
                     <div style={{ fontWeight: 950 }}>{item.wechat || "未填写"}</div>
@@ -430,7 +522,13 @@ export default function ItemPage() {
                   }}
                 >
                   <div style={{ lineHeight: 1.2 }}>
-                    <div style={{ fontSize: 12, color: "rgba(15,23,42,0.55)", fontWeight: 800 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(15,23,42,0.55)",
+                        fontWeight: 800,
+                      }}
+                    >
                       手机号
                     </div>
                     <div style={{ fontWeight: 950 }}>{item.phone || "未填写"}</div>
@@ -466,7 +564,13 @@ export default function ItemPage() {
                   }}
                 >
                   <div style={{ lineHeight: 1.2 }}>
-                    <div style={{ fontSize: 12, color: "rgba(15,23,42,0.55)", fontWeight: 800 }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "rgba(15,23,42,0.55)",
+                        fontWeight: 800,
+                      }}
+                    >
                       取货地点
                     </div>
                     <div style={{ fontWeight: 950 }}>{item.location || "未填写"}</div>
@@ -524,7 +628,7 @@ export default function ItemPage() {
                   fontWeight: 900,
                 }}
               >
-                提示：登录后你可以删除自己发布的商品。
+                提示：登录后你可以删除自己发布的商品，也可以和卖家聊天。
               </div>
             )}
           </div>
