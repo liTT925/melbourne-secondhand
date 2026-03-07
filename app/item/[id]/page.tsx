@@ -22,6 +22,14 @@ type Item = {
   user_id: string;
 };
 
+type ItemImage = {
+  id: string;
+  item_id: string;
+  image_url: string;
+  sort_order: number | null;
+  created_at: string;
+};
+
 function formatAUD(n: number) {
   try {
     return new Intl.NumberFormat("en-AU", {
@@ -46,10 +54,36 @@ export default function ItemPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [startingChat, setStartingChat] = useState(false);
 
+  const [itemImages, setItemImages] = useState<ItemImage[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
   const isOwner = useMemo(() => {
     if (!item || !currentUserId) return false;
     return item.user_id === currentUserId;
   }, [item, currentUserId]);
+
+  const galleryImages = useMemo(() => {
+    const fromTable = itemImages
+      .map((img) => img.image_url)
+      .filter(Boolean);
+
+    if (fromTable.length > 0) return fromTable;
+
+    if (item?.image_url) return [item.image_url];
+
+    return [];
+  }, [itemImages, item]);
+
+  const activeImage = useMemo(() => {
+    if (galleryImages.length === 0) return null;
+    return galleryImages[Math.min(activeImageIndex, galleryImages.length - 1)];
+  }, [galleryImages, activeImageIndex]);
+
+  useEffect(() => {
+    if (activeImageIndex > galleryImages.length - 1) {
+      setActiveImageIndex(0);
+    }
+  }, [galleryImages.length, activeImageIndex]);
 
   useEffect(() => {
     let alive = true;
@@ -70,9 +104,26 @@ export default function ItemPage() {
       if (!alive) return;
 
       if (!error && data) {
-        setItem(data as Item);
+        const typedItem = data as Item;
+        setItem(typedItem);
+
+        const { data: imagesData, error: imagesError } = await supabase
+          .from("item_images")
+          .select("*")
+          .eq("item_id", typedItem.id)
+          .order("sort_order", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        if (!alive) return;
+
+        if (!imagesError && imagesData) {
+          setItemImages(imagesData as ItemImage[]);
+        } else {
+          setItemImages([]);
+        }
       } else {
         setItem(null);
+        setItemImages([]);
       }
 
       setLoading(false);
@@ -183,6 +234,20 @@ export default function ItemPage() {
     }
 
     router.push(`/chat/${created.id}`);
+  }
+
+  function goPrevImage() {
+    if (galleryImages.length <= 1) return;
+    setActiveImageIndex((prev) =>
+      prev === 0 ? galleryImages.length - 1 : prev - 1
+    );
+  }
+
+  function goNextImage() {
+    if (galleryImages.length <= 1) return;
+    setActiveImageIndex((prev) =>
+      prev === galleryImages.length - 1 ? 0 : prev + 1
+    );
   }
 
   if (loading) {
@@ -327,6 +392,22 @@ export default function ItemPage() {
               发布时间：{new Date(item.created_at).toLocaleString()}
             </div>
 
+            {galleryImages.length > 0 && (
+              <div
+                style={{
+                  padding: "10px 12px",
+                  borderRadius: 999,
+                  background: "rgba(0,113,227,0.10)",
+                  border: "1px solid rgba(0,113,227,0.16)",
+                  color: "#0755a6",
+                  fontSize: 13,
+                  fontWeight: 900,
+                }}
+              >
+                共 {galleryImages.length} 张图片
+              </div>
+            )}
+
             {isOwner && (
               <div
                 style={{
@@ -353,42 +434,193 @@ export default function ItemPage() {
             gap: 18,
           }}
         >
-          {/* 左：大图 */}
+          {/* 左：多图展示 */}
           <div
             style={{
-              borderRadius: 22,
-              overflow: "hidden",
-              background: "rgba(255,255,255,0.86)",
-              border: "1px solid rgba(15,23,42,0.08)",
-              boxShadow: "0 20px 60px rgba(15,23,42,0.10)",
+              display: "grid",
+              gap: 12,
             }}
           >
-            {item.image_url ? (
-              <img
-                src={item.image_url}
-                alt={item.title}
-                style={{
-                  width: "100%",
-                  height: 560,
-                  objectFit: "cover",
-                  display: "block",
-                }}
-              />
-            ) : (
+            <div
+              style={{
+                position: "relative",
+                borderRadius: 22,
+                overflow: "hidden",
+                background: "rgba(255,255,255,0.86)",
+                border: "1px solid rgba(15,23,42,0.08)",
+                boxShadow: "0 20px 60px rgba(15,23,42,0.10)",
+              }}
+            >
+              {activeImage ? (
+                <>
+                  <img
+                    src={activeImage}
+                    alt={item.title}
+                    style={{
+                      width: "100%",
+                      height: 560,
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+
+                  {galleryImages.length > 1 && (
+                    <>
+                      <button
+                        onClick={goPrevImage}
+                        style={{
+                          position: "absolute",
+                          left: 14,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: 42,
+                          height: 42,
+                          borderRadius: 999,
+                          border: "none",
+                          cursor: "pointer",
+                          background: "rgba(255,255,255,0.88)",
+                          color: "#0f172a",
+                          fontSize: 22,
+                          fontWeight: 900,
+                          boxShadow: "0 10px 24px rgba(15,23,42,0.16)",
+                        }}
+                      >
+                        ‹
+                      </button>
+
+                      <button
+                        onClick={goNextImage}
+                        style={{
+                          position: "absolute",
+                          right: 14,
+                          top: "50%",
+                          transform: "translateY(-50%)",
+                          width: 42,
+                          height: 42,
+                          borderRadius: 999,
+                          border: "none",
+                          cursor: "pointer",
+                          background: "rgba(255,255,255,0.88)",
+                          color: "#0f172a",
+                          fontSize: 22,
+                          fontWeight: 900,
+                          boxShadow: "0 10px 24px rgba(15,23,42,0.16)",
+                        }}
+                      >
+                        ›
+                      </button>
+
+                      <div
+                        style={{
+                          position: "absolute",
+                          right: 14,
+                          bottom: 14,
+                          padding: "8px 12px",
+                          borderRadius: 999,
+                          background: "rgba(15,23,42,0.72)",
+                          color: "white",
+                          fontWeight: 900,
+                          fontSize: 13,
+                          boxShadow: "0 10px 24px rgba(15,23,42,0.20)",
+                        }}
+                      >
+                        {activeImageIndex + 1} / {galleryImages.length}
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div
+                  style={{
+                    height: 560,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background:
+                      "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
+                    color: "rgba(15,23,42,0.6)",
+                    fontWeight: 900,
+                    fontSize: 18,
+                  }}
+                >
+                  暂无图片
+                </div>
+              )}
+            </div>
+
+            {galleryImages.length > 1 && (
               <div
                 style={{
-                  height: 560,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background:
-                    "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
-                  color: "rgba(15,23,42,0.6)",
-                  fontWeight: 900,
-                  fontSize: 18,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))",
+                  gap: 10,
+                  padding: 12,
+                  borderRadius: 20,
+                  background: "rgba(255,255,255,0.84)",
+                  border: "1px solid rgba(15,23,42,0.08)",
+                  boxShadow: "0 18px 50px rgba(15,23,42,0.08)",
                 }}
               >
-                暂无图片
+                {galleryImages.map((img, index) => {
+                  const active = index === activeImageIndex;
+                  return (
+                    <button
+                      key={`${img}-${index}`}
+                      onClick={() => setActiveImageIndex(index)}
+                      style={{
+                        padding: 0,
+                        borderRadius: 16,
+                        overflow: "hidden",
+                        border: active
+                          ? "2px solid #0071e3"
+                          : "1px solid rgba(15,23,42,0.08)",
+                        cursor: "pointer",
+                        background: active
+                          ? "rgba(0,113,227,0.06)"
+                          : "rgba(255,255,255,0.92)",
+                        boxShadow: active
+                          ? "0 12px 28px rgba(0,113,227,0.18)"
+                          : "0 8px 20px rgba(15,23,42,0.05)",
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          height: 88,
+                        }}
+                      >
+                        <img
+                          src={img}
+                          alt={`${item.title}-${index + 1}`}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 8,
+                            bottom: 8,
+                            padding: "4px 7px",
+                            borderRadius: 999,
+                            background: active
+                              ? "rgba(0,113,227,0.92)"
+                              : "rgba(15,23,42,0.70)",
+                            color: "white",
+                            fontSize: 11,
+                            fontWeight: 900,
+                          }}
+                        >
+                          {index === 0 ? "封面" : `图 ${index + 1}`}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -455,7 +687,8 @@ export default function ItemPage() {
                     cursor: startingChat ? "not-allowed" : "pointer",
                     padding: "14px 16px",
                     borderRadius: 16,
-                    background: "linear-gradient(135deg, #0071e3 0%, #16a34a 100%)",
+                    background:
+                      "linear-gradient(135deg, #0071e3 0%, #16a34a 100%)",
                     color: "white",
                     fontWeight: 950,
                     boxShadow: "0 14px 30px rgba(0,113,227,0.22)",
@@ -654,6 +887,20 @@ export default function ItemPage() {
           </div>
         )}
       </div>
+
+      <style jsx>{`
+        @media (max-width: 920px) {
+          div[style*="grid-template-columns: 1.15fr 0.85fr"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 560px) {
+          div[style*="grid-template-columns: repeat(auto-fill, minmax(96px, 1fr))"] {
+            grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)) !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
