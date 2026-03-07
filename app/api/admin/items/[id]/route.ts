@@ -28,11 +28,22 @@ export async function DELETE(
     );
   }
 
-  const { error } = await supabase.from("items").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("items")
+    .delete()
+    .eq("id", id)
+    .select("id, title");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  if (!data || data.length === 0) {
+    return NextResponse.json(
+      { error: "Item not found or not deleted", id },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ success: true, deleted: data[0] });
 }
