@@ -8,8 +8,9 @@ const supabase = createClient(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await context.params;
   const adminKey = req.headers.get("x-admin-key");
 
   if (!process.env.ADMIN_KEY || adminKey !== process.env.ADMIN_KEY) {
@@ -27,7 +28,7 @@ export async function DELETE(
     );
   }
 
-  const { error } = await supabase.from("items").delete().eq("id", params.id);
+  const { error } = await supabase.from("items").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
