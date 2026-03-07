@@ -28,22 +28,62 @@ export async function DELETE(
     );
   }
 
-  const { data, error } = await supabase
-    .from("items")
-    .delete()
-    .eq("id", id)
-    .select("id, title");
+  const normalizedId = String(id).trim();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  const { data: existing, error: findError } = await supabase
+    .from("items")
+    .select("id,title")
+    .eq("id", normalizedId)
+    .maybeSingle();
+
+  if (findError) {
+    return NextResponse.json(
+      { error: findError.message, step: "find", id: normalizedId },
+      { status: 500 }
+    );
   }
 
-  if (!data || data.length === 0) {
+  if (!existing) {
     return NextResponse.json(
-      { error: "Item not found or not deleted", id },
+      {
+        error: "Item not found before delete",
+        id: normalizedId,
+      },
       { status: 404 }
     );
   }
 
-  return NextResponse.json({ success: true, deleted: data[0] });
+  const { data: deleted, error: deleteError } = await supabase
+    .from("items")
+    .delete()
+    .eq("id", normalizedId)
+    .select("id,title");
+
+  if (deleteError) {
+    return NextResponse.json(
+      {
+        error: deleteError.message,
+        step: "delete",
+        id: normalizedId,
+        found: existing,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json(
+      {
+        error: "Matched before delete, but no row deleted",
+        id: normalizedId,
+        found: existing,
+      },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    success: true,
+    deleted: deleted[0],
+  });
 }
