@@ -63,12 +63,9 @@ export default function ItemPage() {
   }, [item, currentUserId]);
 
   const galleryImages = useMemo(() => {
-    const fromTable = itemImages
-      .map((img) => img.image_url)
-      .filter(Boolean);
+    const fromTable = itemImages.map((img) => img.image_url).filter(Boolean);
 
     if (fromTable.length > 0) return fromTable;
-
     if (item?.image_url) return [item.image_url];
 
     return [];
@@ -89,12 +86,10 @@ export default function ItemPage() {
     let alive = true;
 
     async function loadItem() {
-      // 先拿当前登录用户
       const { data: authData } = await supabase.auth.getUser();
       if (!alive) return;
       setCurrentUserId(authData?.user?.id ?? null);
 
-      // 再拿商品
       const { data, error } = await supabase
         .from("items")
         .select("*")
@@ -152,6 +147,18 @@ export default function ItemPage() {
     }
   }
 
+  function extractStoragePathFromPublicUrl(url: string | null) {
+    if (!url) return null;
+
+    const marker = "/storage/v1/object/public/items/";
+    const index = url.indexOf(marker);
+
+    if (index === -1) return null;
+
+    const path = url.slice(index + marker.length);
+    return decodeURIComponent(path);
+  }
+
   async function handleDelete() {
     if (!item) return;
     const ok = confirm("确定删除这个商品吗？删除后不可恢复。");
@@ -159,17 +166,54 @@ export default function ItemPage() {
 
     setDeleting(true);
 
-    const { error } = await supabase.from("items").delete().eq("id", item.id);
+    try {
+      const { data: imageRows, error: imageQueryError } = await supabase
+        .from("item_images")
+        .select("image_url")
+        .eq("item_id", item.id);
 
-    setDeleting(false);
+      if (imageQueryError) {
+        throw new Error("读取图片记录失败：" + imageQueryError.message);
+      }
 
-    if (error) {
-      alert("删除失败：" + error.message);
-      return;
+      const storagePaths = new Set<string>();
+
+      for (const row of imageRows ?? []) {
+        const path = extractStoragePathFromPublicUrl(row.image_url);
+        if (path) storagePaths.add(path);
+      }
+
+      const coverPath = extractStoragePathFromPublicUrl(item.image_url);
+      if (coverPath) storagePaths.add(coverPath);
+
+      const { error: deleteItemError } = await supabase
+        .from("items")
+        .delete()
+        .eq("id", item.id);
+
+      if (deleteItemError) {
+        throw new Error("删除商品失败：" + deleteItemError.message);
+      }
+
+      if (storagePaths.size > 0) {
+        const { error: storageDeleteError } = await supabase.storage
+          .from("items")
+          .remove(Array.from(storagePaths));
+
+        if (storageDeleteError) {
+          alert("商品已删除，但部分图片文件删除失败：" + storageDeleteError.message);
+          router.push("/");
+          return;
+        }
+      }
+
+      alert("删除成功");
+      router.push("/");
+    } catch (e: any) {
+      alert(e?.message ?? "删除失败");
+    } finally {
+      setDeleting(false);
     }
-
-    alert("删除成功");
-    router.push("/");
   }
 
   async function handleStartChat() {
@@ -194,7 +238,6 @@ export default function ItemPage() {
       return;
     }
 
-    // 先查有没有已有会话
     const { data: existing, error: existingError } = await supabase
       .from("conversations")
       .select("id")
@@ -215,7 +258,6 @@ export default function ItemPage() {
       return;
     }
 
-    // 没有就创建新会话
     const { data: created, error: createError } = await supabase
       .from("conversations")
       .insert({
@@ -343,7 +385,6 @@ export default function ItemPage() {
       }}
     >
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {/* 顶部返回 + 状态 */}
         <div
           style={{
             display: "flex",
@@ -426,7 +467,6 @@ export default function ItemPage() {
           </div>
         </div>
 
-        {/* 主体 */}
         <div
           style={{
             display: "grid",
@@ -650,7 +690,6 @@ export default function ItemPage() {
               {formatAUD(item.price)}
             </div>
 
-            {/* 描述 */}
             <div style={{ marginTop: 22 }}>
               <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 10 }}>
                 商品描述
@@ -670,7 +709,6 @@ export default function ItemPage() {
               </div>
             </div>
 
-            {/* 联系卖家 */}
             <div style={{ marginTop: 18 }}>
               <div style={{ fontWeight: 950, fontSize: 16, marginBottom: 10 }}>
                 联系卖家
@@ -699,7 +737,6 @@ export default function ItemPage() {
               )}
 
               <div style={{ display: "grid", gap: 10 }}>
-                {/* 微信 */}
                 <div
                   style={{
                     display: "flex",
@@ -741,7 +778,6 @@ export default function ItemPage() {
                   </button>
                 </div>
 
-                {/* 电话 */}
                 <div
                   style={{
                     display: "flex",
@@ -783,7 +819,6 @@ export default function ItemPage() {
                   </button>
                 </div>
 
-                {/* 地点 */}
                 <div
                   style={{
                     display: "flex",
@@ -827,7 +862,6 @@ export default function ItemPage() {
               </div>
             </div>
 
-            {/* 删除按钮：只有本人看到 */}
             {isOwner && (
               <button
                 onClick={handleDelete}
@@ -867,7 +901,6 @@ export default function ItemPage() {
           </div>
         </div>
 
-        {/* 小提示 Toast */}
         {toast && (
           <div
             style={{

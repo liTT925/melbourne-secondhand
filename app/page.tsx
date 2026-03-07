@@ -597,8 +597,8 @@ export default function Home() {
               color: "rgba(15,23,42,0.06)",
             },
             {
-              title: "开发者模式",
-              desc: "连续点击左上角 Logo",
+              title: "开发者",
+              desc: "TT",
               color: "rgba(167,139,250,0.14)",
             },
           ].map((card) =>
