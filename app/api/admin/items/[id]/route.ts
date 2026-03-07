@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  supabaseUrl!,
+  serviceRoleKey!
 );
 
 export async function DELETE(
@@ -38,7 +41,14 @@ export async function DELETE(
 
   if (findError) {
     return NextResponse.json(
-      { error: findError.message, step: "find", id: normalizedId },
+      {
+        error: findError.message,
+        step: "find",
+        id: normalizedId,
+        hasServiceRoleKey: !!serviceRoleKey,
+        serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
+        supabaseUrlExists: !!supabaseUrl,
+      },
       { status: 500 }
     );
   }
@@ -48,6 +58,8 @@ export async function DELETE(
       {
         error: "Item not found before delete",
         id: normalizedId,
+        hasServiceRoleKey: !!serviceRoleKey,
+        serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
       },
       { status: 404 }
     );
@@ -65,6 +77,8 @@ export async function DELETE(
         step: "delete",
         id: normalizedId,
         found: existing,
+        hasServiceRoleKey: !!serviceRoleKey,
+        serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
       },
       { status: 500 }
     );
@@ -82,6 +96,8 @@ export async function DELETE(
         error: verifyError.message,
         step: "verify",
         id: normalizedId,
+        hasServiceRoleKey: !!serviceRoleKey,
+        serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
       },
       { status: 500 }
     );
@@ -93,6 +109,9 @@ export async function DELETE(
         error: "Delete command ran, but item still exists",
         id: normalizedId,
         found: existing,
+        hasServiceRoleKey: !!serviceRoleKey,
+        serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
+        sameRowStillExists: afterDelete,
       },
       { status: 500 }
     );
@@ -101,5 +120,7 @@ export async function DELETE(
   return NextResponse.json({
     success: true,
     deleted: existing,
+    hasServiceRoleKey: !!serviceRoleKey,
+    serviceRolePreview: serviceRoleKey ? serviceRoleKey.slice(0, 12) : null,
   });
 }
