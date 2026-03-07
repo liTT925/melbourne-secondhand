@@ -53,11 +53,10 @@ export async function DELETE(
     );
   }
 
-  const { data: deleted, error: deleteError } = await supabase
+  const { error: deleteError } = await supabase
     .from("items")
     .delete()
-    .eq("id", normalizedId)
-    .select("id,title");
+    .eq("id", normalizedId);
 
   if (deleteError) {
     return NextResponse.json(
@@ -71,10 +70,27 @@ export async function DELETE(
     );
   }
 
-  if (!deleted || deleted.length === 0) {
+  const { data: afterDelete, error: verifyError } = await supabase
+    .from("items")
+    .select("id,title")
+    .eq("id", normalizedId)
+    .maybeSingle();
+
+  if (verifyError) {
     return NextResponse.json(
       {
-        error: "Matched before delete, but no row deleted",
+        error: verifyError.message,
+        step: "verify",
+        id: normalizedId,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (afterDelete) {
+    return NextResponse.json(
+      {
+        error: "Delete command ran, but item still exists",
         id: normalizedId,
         found: existing,
       },
@@ -84,6 +100,6 @@ export async function DELETE(
 
   return NextResponse.json({
     success: true,
-    deleted: deleted[0],
+    deleted: existing,
   });
 }
