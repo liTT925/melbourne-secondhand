@@ -5,16 +5,21 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
 type Item = {
-  image_url: any;
+  image_url: string | null;
+  cover_url?: string | null;
+  image_count?: number;
   id: string | number;
   title: string;
   price: number | string | null;
   description: string | null;
   created_at: string;
-  // 你后面加图片/分类/地点，可以在这里加字段
-  // image_url?: string | null;
-  // category?: string | null;
-  // suburb?: string | null;
+};
+
+type ItemImageRow = {
+  item_id: string;
+  image_url: string;
+  sort_order: number | null;
+  created_at: string;
 };
 
 const supabase = createClient(
@@ -69,7 +74,54 @@ export default function Home() {
       const { data, error } = await query;
       if (error) throw error;
 
-      setItems((data as Item[]) ?? []);
+      const rawItems = (data as Item[]) ?? [];
+
+      if (rawItems.length === 0) {
+        setItems([]);
+        return;
+      }
+
+      const itemIds = rawItems.map((item) => String(item.id));
+
+      const { data: imageRows, error: imageError } = await supabase
+        .from("item_images")
+        .select("item_id,image_url,sort_order,created_at")
+        .in("item_id", itemIds)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (imageError) {
+        throw imageError;
+      }
+
+      const firstImageMap = new Map<string, string>();
+      const imageCountMap = new Map<string, number>();
+
+      for (const row of (imageRows ?? []) as ItemImageRow[]) {
+        const itemId = String(row.item_id);
+
+        imageCountMap.set(itemId, (imageCountMap.get(itemId) || 0) + 1);
+
+        if (!firstImageMap.has(itemId) && row.image_url) {
+          firstImageMap.set(itemId, row.image_url);
+        }
+      }
+
+      const patchedItems = rawItems.map((item) => {
+        const itemId = String(item.id);
+        const fallbackCover = firstImageMap.get(itemId) || null;
+        const cover = item.image_url || fallbackCover || null;
+        const imageCount =
+          imageCountMap.get(itemId) || (cover ? 1 : 0);
+
+        return {
+          ...item,
+          cover_url: cover,
+          image_count: imageCount,
+        };
+      });
+
+      setItems(patchedItems);
     } catch (e: any) {
       setErrMsg(e?.message ?? "加载失败");
     } finally {
@@ -129,7 +181,7 @@ export default function Home() {
           position: "sticky",
           top: 0,
           zIndex: 20,
-          backdropFilter: "saturate(180%) blur(12px)",
+          backdropFilter: "saturate(180%) blur(14px)",
           background: "rgba(255,255,255,0.78)",
           borderBottom: "1px solid rgba(15, 23, 42, 0.06)",
         }}
@@ -158,14 +210,15 @@ export default function Home() {
           >
             <div
               style={{
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 borderRadius: 12,
                 background:
                   "linear-gradient(135deg, rgba(0,113,227,1) 0%, rgba(46,204,113,1) 100%)",
                 boxShadow: "0 10px 30px rgba(0,113,227,0.18)",
                 position: "relative",
                 overflow: "hidden",
+                flexShrink: 0,
               }}
             >
               <div
@@ -314,12 +367,12 @@ export default function Home() {
       <div style={{ maxWidth: 1220, margin: "0 auto", padding: "34px 18px 10px" }}>
         <div
           style={{
-            borderRadius: 26,
+            borderRadius: 28,
             padding: "36px 28px",
             background:
-              "linear-gradient(135deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.68) 100%)",
+              "linear-gradient(135deg, rgba(255,255,255,0.90) 0%, rgba(255,255,255,0.70) 100%)",
             border: "1px solid rgba(15,23,42,0.08)",
-            boxShadow: "0 20px 60px rgba(15,23,42,0.09)",
+            boxShadow: "0 22px 60px rgba(15,23,42,0.09)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -338,14 +391,14 @@ export default function Home() {
             style={{
               position: "relative",
               display: "grid",
-              gridTemplateColumns: "1.2fr 0.8fr",
+              gridTemplateColumns: "1.18fr 0.82fr",
               gap: 20,
               alignItems: "stretch",
             }}
           >
             <div>
               <div style={{ fontSize: 14, color: "rgba(15,23,42,0.65)", fontWeight: 800 }}>
-                面向墨尔本留学生的二手交易桌面
+                Melbourne Secondhand Marketplace
               </div>
 
               <h1
@@ -356,22 +409,22 @@ export default function Home() {
                   lineHeight: 1.08,
                 }}
               >
-                买卖闲置，像刷 App 一样顺滑
+                买卖闲置，更顺手一点
               </h1>
 
               <div
                 style={{
                   color: "rgba(15,23,42,0.68)",
                   fontSize: 16,
-                  lineHeight: 1.7,
+                  lineHeight: 1.75,
                   maxWidth: 680,
                 }}
               >
-                现在你的网站已经不只是展示页了。它已经开始具备发布、浏览、搜索、聊天和消息中心这些真正的平台骨架。下一步，你会把它磨成一个更像产品、更像品牌的站。
+                现在这里已经不只是一个商品展示页。它有商品流、详情页、聊天和消息中心，正慢慢长成一个真正能交易的小平台。
               </div>
 
               <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
-                {["真实商品列表", "一键发布", "关键词搜索", "站内聊天", "消息中心"].map((t) => (
+                {["商品展示", "一键发布", "关键词搜索", "站内聊天", "消息中心"].map((t) => (
                   <div
                     key={t}
                     style={{
@@ -436,7 +489,7 @@ export default function Home() {
                 style={{
                   padding: 18,
                   borderRadius: 20,
-                  background: "rgba(255,255,255,0.78)",
+                  background: "rgba(255,255,255,0.80)",
                   border: "1px solid rgba(15,23,42,0.08)",
                   boxShadow: "0 14px 36px rgba(15,23,42,0.07)",
                 }}
@@ -448,7 +501,7 @@ export default function Home() {
                   {loading ? "..." : filteredItems.length}
                 </div>
                 <div style={{ marginTop: 8, color: "rgba(15,23,42,0.6)", lineHeight: 1.7 }}>
-                  这是首页当前展示的商品数量，后面可以继续接分类、地点和价格筛选。
+                  首页当前展示的商品数量。
                 </div>
               </div>
 
@@ -463,7 +516,7 @@ export default function Home() {
                   style={{
                     padding: 18,
                     borderRadius: 20,
-                    background: "rgba(255,255,255,0.78)",
+                    background: "rgba(255,255,255,0.80)",
                     border: "1px solid rgba(15,23,42,0.08)",
                     boxShadow: "0 14px 36px rgba(15,23,42,0.07)",
                   }}
@@ -480,13 +533,13 @@ export default function Home() {
                   style={{
                     padding: 18,
                     borderRadius: 20,
-                    background: "rgba(255,255,255,0.78)",
+                    background: "rgba(255,255,255,0.80)",
                     border: "1px solid rgba(15,23,42,0.08)",
                     boxShadow: "0 14px 36px rgba(15,23,42,0.07)",
                   }}
                 >
                   <div style={{ fontSize: 12, color: "rgba(15,23,42,0.52)", fontWeight: 800 }}>
-                    分类状态
+                    分类
                   </div>
                   <div style={{ marginTop: 8, fontSize: 18, fontWeight: 900 }}>
                     {activeCat}
@@ -498,19 +551,17 @@ export default function Home() {
                 style={{
                   padding: 18,
                   borderRadius: 20,
-                  background: "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
+                  background:
+                    "linear-gradient(135deg, rgba(0,113,227,0.10) 0%, rgba(46,204,113,0.10) 100%)",
                   border: "1px solid rgba(15,23,42,0.06)",
                   boxShadow: "0 14px 36px rgba(15,23,42,0.05)",
                 }}
               >
                 <div style={{ fontSize: 12, color: "rgba(15,23,42,0.52)", fontWeight: 800 }}>
-                  当前进度
+                  当前模块
                 </div>
                 <div style={{ marginTop: 8, fontSize: 22, fontWeight: 950 }}>
                   首页、详情、聊天、消息中心
-                </div>
-                <div style={{ marginTop: 8, color: "rgba(15,23,42,0.64)", lineHeight: 1.7 }}>
-                  你现在已经搭出一个真正二手平台的主干，不再只是“能打开”的网页。
                 </div>
               </div>
             </div>
@@ -529,30 +580,34 @@ export default function Home() {
           {[
             {
               title: "发布商品",
-              desc: "把闲置挂上来，立刻开始曝光",
+              desc: "把闲置挂上来，开始曝光",
               href: "/publish",
               color: "rgba(46,204,113,0.14)",
             },
             {
               title: "我的消息",
-              desc: "查看买家卖家的最新聊天",
+              desc: "查看买家卖家的聊天",
               href: "/messages",
               color: "rgba(0,113,227,0.12)",
             },
             {
               title: "刷新商品",
-              desc: "重新拉取最新的商品列表",
+              desc: "重新拉取最新商品列表",
               action: () => loadItems(),
               color: "rgba(15,23,42,0.06)",
             },
             {
               title: "开发者模式",
-              desc: "连续点击左上角 Logo 进入后台",
+              desc: "连续点击左上角 Logo",
               color: "rgba(167,139,250,0.14)",
             },
           ].map((card) =>
             card.href ? (
-              <a key={card.title} href={card.href} style={{ textDecoration: "none", color: "inherit" }}>
+              <a
+                key={card.title}
+                href={card.href}
+                style={{ textDecoration: "none", color: "inherit" }}
+              >
                 <div
                   style={{
                     padding: 18,
@@ -660,7 +715,6 @@ export default function Home() {
             {loading ? "正在加载..." : `当前展示 ${filteredItems.length} 条商品`}
             {errMsg ? ` | 错误：${errMsg}` : ""}
           </div>
-          <div>提示：分类现在还是 UI，等你加 category 字段后就能接真实筛选。</div>
         </div>
 
         {/* 最新商品预览条 */}
@@ -702,9 +756,9 @@ export default function Home() {
                       flexShrink: 0,
                     }}
                   >
-                    {item.image_url ? (
+                    {(item.cover_url || item.image_url) ? (
                       <img
-                        src={item.image_url}
+                        src={item.cover_url || item.image_url || ""}
                         alt={item.title}
                         style={{
                           width: "100%",
@@ -736,6 +790,18 @@ export default function Home() {
                     >
                       {formatPrice(item.price)}
                     </div>
+                    {(item.image_count || 0) > 1 && (
+                      <div
+                        style={{
+                          marginTop: 4,
+                          fontSize: 12,
+                          color: "#0755a6",
+                          fontWeight: 800,
+                        }}
+                      >
+                        {item.image_count} 张图
+                      </div>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -821,9 +887,9 @@ export default function Home() {
                     overflow: "hidden",
                   }}
                 >
-                  {item.image_url ? (
+                  {(item.cover_url || item.image_url) ? (
                     <img
-                      src={item.image_url}
+                      src={item.cover_url || item.image_url || ""}
                       alt={item.title}
                       style={{
                         width: "100%",
@@ -840,17 +906,41 @@ export default function Home() {
                       position: "absolute",
                       top: 12,
                       right: 12,
-                      padding: "7px 11px",
-                      borderRadius: 999,
-                      background: "rgba(255,255,255,0.88)",
-                      border: "1px solid rgba(15,23,42,0.06)",
-                      color: "#16a34a",
-                      fontWeight: 900,
-                      fontSize: 13,
-                      boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
                     }}
                   >
-                    {formatPrice(item.price)}
+                    {(item.image_count || 0) > 1 && (
+                      <div
+                        style={{
+                          padding: "7px 10px",
+                          borderRadius: 999,
+                          background: "rgba(15,23,42,0.72)",
+                          color: "white",
+                          fontWeight: 900,
+                          fontSize: 12,
+                          boxShadow: "0 8px 20px rgba(15,23,42,0.12)",
+                        }}
+                      >
+                        {item.image_count}图
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        padding: "7px 11px",
+                        borderRadius: 999,
+                        background: "rgba(255,255,255,0.88)",
+                        border: "1px solid rgba(15,23,42,0.06)",
+                        color: "#16a34a",
+                        fontWeight: 900,
+                        fontSize: 13,
+                        boxShadow: "0 8px 20px rgba(15,23,42,0.08)",
+                      }}
+                    >
+                      {formatPrice(item.price)}
+                    </div>
                   </div>
                 </div>
 
@@ -919,7 +1009,7 @@ export default function Home() {
                 没有找到商品
               </div>
               <div style={{ marginTop: 10, lineHeight: 1.8 }}>
-                你可以点右上角 <b>+ 发布商品</b> 先发一条测试数据，也可以试试换一个关键词重新搜索。
+                试试换个关键词，或者先发布一条新商品。
               </div>
             </div>
           )}
@@ -949,7 +1039,7 @@ export default function Home() {
                 lineHeight: 1.8,
               }}
             >
-              你的平台现在已经有商品展示、商品详情、发布功能、站内聊天和消息中心。后面再接上分类筛选、个人主页、收藏和未读消息，它就会越来越像一个完整产品。
+              你的平台已经有商品展示、商品详情、发布功能、站内聊天和消息中心。接下来再把筛选、个人主页、收藏和未读消息补上，就会越来越完整。
             </div>
           </div>
 
@@ -961,7 +1051,7 @@ export default function Home() {
               alignContent: "flex-start",
             }}
           >
-            {["商品详情", "聊天功能", "消息中心", "开发者模式", "墨尔本留学生场景"].map((t) => (
+            {["商品详情", "多图展示", "聊天功能", "消息中心", "留学生场景"].map((t) => (
               <div
                 key={t}
                 style={{
@@ -1000,6 +1090,26 @@ export default function Home() {
           {logoTapMsg}
         </div>
       )}
+
+      <style jsx>{`
+        @media (max-width: 1080px) {
+          div[style*="grid-template-columns: 1.18fr 0.82fr"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+
+        @media (max-width: 980px) {
+          div[style*="grid-template-columns: repeat(4, minmax(0, 1fr))"] {
+            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+          }
+        }
+
+        @media (max-width: 640px) {
+          div[style*="grid-template-columns: repeat(2, minmax(0, 1fr))"] {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
